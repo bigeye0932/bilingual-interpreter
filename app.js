@@ -4,9 +4,23 @@
   let autoSpeakEnabled = false;
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   let voices = [];
+  let selectedVoiceURI = "";
 
   function refreshVoices() {
     voices = ("speechSynthesis" in window) ? window.speechSynthesis.getVoices() : [];
+    const select = $("voiceSelect");
+    if (select) {
+      const previous = selectedVoiceURI || select.value;
+      select.innerHTML = '<option value="">依翻譯語言自動選擇最佳聲音</option>';
+      const relevant = voices.filter(v => /^(zh|en)/i.test(v.lang));
+      relevant.forEach(v => {
+        const opt = document.createElement("option");
+        opt.value = v.voiceURI;
+        opt.textContent = v.name + "（" + v.lang + "）";
+        select.appendChild(opt);
+      });
+      if (previous && [...select.options].some(o => o.value === previous)) select.value = previous;
+    }
   }
   if ("speechSynthesis" in window) {
     refreshVoices();
@@ -62,11 +76,17 @@
 
   function selectVoice(lang) {
     refreshVoices();
-    if (lang === "zh-TW") {
-      return voices.find(v => /^zh[-_]tw$/i.test(v.lang)) ||
-        voices.find(v => /zh[-_]hant/i.test(v.lang)) || voices.find(v => /^zh/i.test(v.lang));
-    }
-    return voices.find(v => /^en[-_]us$/i.test(v.lang)) || voices.find(v => /^en/i.test(v.lang));
+    const isChinese = lang === "zh-TW";
+    const matching = isChinese
+      ? voices.filter(v => /^zh[-_]tw$/i.test(v.lang) || /zh[-_]hant/i.test(v.lang) || /^zh/i.test(v.lang))
+      : voices.filter(v => /^en[-_]us$/i.test(v.lang) || /^en/i.test(v.lang));
+
+    // Voice names are not consistently labelled by gender on iOS.
+    // These hints only prioritize likely matches; users can choose any installed voice in the selector.
+    const femaleHints = /female|woman|samantha|ava|jenny|aria|susan|ting[- ]?ting|mei[- ]?jia|sin[- ]?ji/i;
+    const maleHints = /male|man|daniel|alex|fred|tom|aaron|guy|david|oliver|lee/i;
+    const preferred = isChinese ? femaleHints : maleHints;
+    return matching.find(v => preferred.test(v.name)) || matching[0];
   }
 
   function speak(text, lang) {
@@ -84,8 +104,11 @@
     utterance.rate = 0.92;
     utterance.pitch = 1;
     utterance.volume = 1;
-    const voice = selectVoice(lang);
+    const manualVoice = selectedVoiceURI ? voices.find(v => v.voiceURI === selectedVoiceURI) : null;
+    const voice = manualVoice || selectVoice(lang);
     if (voice) utterance.voice = voice;
+    const rateControl = $("rateSelect");
+    utterance.rate = rateControl ? Number(rateControl.value || 0.92) : 0.92;
     utterance.onstart = () => setStatus("正在播放語音…");
     utterance.onend = () => setStatus("語音播放完成");
     utterance.onerror = e => setStatus("語音播放失敗：" + (e.error || "未知錯誤"));
@@ -176,5 +199,17 @@
     direction === "en-zh" ? "zh-TW" : "en-US"
   ));
   $("speakBtn").parentElement.insertAdjacentElement("afterend", test);
+  const voiceSelect = $("voiceSelect");
+  if (voiceSelect) {
+    voiceSelect.addEventListener("change", () => {
+      selectedVoiceURI = voiceSelect.value;
+      setStatus(selectedVoiceURI ? "已選擇語音" : "依語言自動選擇語音");
+    });
+  }
+  const preview = $("previewVoice");
+  if (preview) preview.addEventListener("click", () => {
+    speak(direction === "en-zh" ? "你好，這是語音試聽。" : "Hello, this is a voice preview.",
+      direction === "en-zh" ? "zh-TW" : "en-US");
+  });
   if (!SpeechRecognition) setStatus("語音辨識需使用支援的瀏覽器；可先輸入文字");
 })();
