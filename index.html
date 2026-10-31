@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#123b5d">
-  <title>AI 雙向即時口譯</title>
+  <title>美國出差最後 4 天｜雙向即時口譯</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -12,13 +12,18 @@
   <main class="app">
     <header>
       <div class="eyebrow">免 API Key・瀏覽器口譯工具</div>
-      <h1>雙向即時口譯</h1>
-      <p>繁體中文 ⇄ 美式英文</p>
+      <h1>美國出差口譯｜最後 4 天版</h1>
+      <p>繁體中文 ⇄ 美式英文｜免 OpenAI API 費用</p>
     </header>
 
+    <section class="trip-tip">
+      <strong>✈️ 最後 4 天出差省錢模式</strong>
+      <p>目前使用免費翻譯服務與 iPhone 內建語音，不需要設定 OpenAI API，也不會因為單純打開網頁就產生 OpenAI API 費用。</p>
+      <p class="trip-small">建議：需要交談時才按「開始收音」；談話結束按「停止」。</p>
+    </section>
     <section class="notice">
       <strong>使用前提醒</strong>
-      <p>此版本使用瀏覽器語音辨識、免費翻譯服務及裝置語音播放，不使用 OpenAI API。需要網路及麥克風權限；不同瀏覽器支援度可能不同。</p>
+      <p>需要網路及麥克風權限。語音辨識與自動播放是否正常，會受到 iPhone 瀏覽器和系統限制；若收音不支援，可使用下方文字輸入或 iPhone 鍵盤聽寫。</p>
     </section>
 
     <section class="direction">
@@ -40,8 +45,8 @@
     </section>
 
     <section class="controls">
-      <button id="startBtn" class="primary" type="button">🎙️ 開始收音</button>
-      <button id="stopBtn" class="secondary" type="button" disabled>停止</button>
+      <button id="startBtn" class="primary" type="button">🎙️ 開始口譯</button>
+      <button id="stopBtn" class="secondary" type="button" disabled>⏹ 停止</button>
       <button id="clearBtn" class="secondary" type="button">清除</button>
     </section>
 
@@ -51,6 +56,15 @@
       <button id="translateBtn" class="secondary full" type="button">翻譯文字</button>
     </section>
 
+    <section class="quick-help">
+      <strong>快速使用</strong>
+      <ol>
+        <li>先選擇翻譯方向。</li>
+        <li>按「開始口譯」，允許麥克風使用權限。</li>
+        <li>每句話辨識完成後會自動翻譯，並嘗試自動播放。</li>
+        <li>談話結束按「停止」，需要時可按「播放翻譯」重聽。</li>
+      </ol>
+    </section>
     <details class="help">
       <summary>使用說明與故障排除</summary>
       <ul>
@@ -61,7 +75,7 @@
         <li>免費翻譯服務可能有流量限制、延遲或暫時無法使用；本工具不是專業醫療或法律口譯。</li>
       </ul>
     </details>
-    <footer>免 OpenAI API Key｜翻譯文字會送至 MyMemory 免費翻譯服務處理。</footer>
+    <footer>美國出差最後 4 天版｜免 OpenAI API Key｜翻譯文字會送至 MyMemory 免費翻譯服務處理。</footer>
   </main>
   <script src="app.js"></script>
 </body>

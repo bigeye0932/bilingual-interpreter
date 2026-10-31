@@ -1,23 +1,23 @@
-雙向即時口譯 V1.0（免 OpenAI API Key）
+美國出差最後 4 天專用版 V1.5
 
-檔案：
-- index.html：網頁主畫面
-- style.css：版面樣式
-- app.js：語音辨識與翻譯程式
-- manifest.webmanifest：可加入手機主畫面的基本設定
+本版特色
+- 不需要 OpenAI API Key，不會產生 OpenAI API 用量費用。
+- 使用 MyMemory 免費翻譯服務。
+- 使用瀏覽器語音辨識及 iPhone 內建語音播放。
+- 自動播放預設開啟；iPhone 仍可能因系統限制要求使用者點擊播放。
+- 保留英文→繁體中文、中文→美式英文及文字輸入翻譯。
+- 停止口譯時會停止語音播放。
 
-部署到 GitHub Pages：
+更新 GitHub Pages
 1. 解壓縮 ZIP。
-2. 在 GitHub 建立 Public repository。
-3. 將上述四個檔案（及本說明檔）上傳到 repository 根目錄。
-4. Settings > Pages > Build and deployment 選 Deploy from a branch。
-5. Branch 選 main，資料夾選 /(root)，按 Save。
-6. 等待 GitHub Pages 提供 https 網址。
+2. 開啟 GitHub 專案 bigeye0932/bilingual-interpreter。
+3. 將 index.html、style.css、app.js 三個檔案上傳並覆蓋原檔。
+4. Commit changes，等待 GitHub Pages 更新。
+5. 用 iPhone Chrome 重新整理網站。
 
-重要限制：
-- 本程式不使用 OpenAI API Key。
-- 語音辨識使用瀏覽器 Web Speech API；Chrome/Edge 支援度通常較好，Safari/iPhone 的支援可能受系統版本限制。
-- 免費翻譯使用 MyMemory 公開翻譯 API，可能有流量限制、延遲、品質或服務可用性限制。
-- 翻譯文字會送到 MyMemory 服務處理，請勿輸入密碼、個資或機密內容。
-- 若瀏覽器不支援語音辨識，可使用文字輸入欄及手機鍵盤聽寫。
-- 網頁需透過 HTTPS 網址開啟，麥克風權限才較容易正常運作。
+重要提醒
+- 單純開啟網站不會產生 OpenAI API 費用；本版沒有呼叫 OpenAI API。
+- MyMemory 免費服務可能有每日用量限制、速度或品質限制。
+- 語音辨識需網路、麥克風權限及瀏覽器支援。
+- 若自動播放被 iOS 阻擋，請點「播放翻譯」或先點「測試耳機語音」。
+- 翻譯文字會傳送到 MyMemory 服務；避免輸入密碼、個資或機密內容。

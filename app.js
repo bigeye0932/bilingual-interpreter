@@ -1,7 +1,7 @@
 (() => {
   const $ = id => document.getElementById(id);
   let direction = "en-zh", recognition = null, listening = false, lastTranslation = "";
-  let autoSpeakEnabled = false;
+  let autoSpeakEnabled = true;
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   let voices = [];
   let selectedVoiceURI = "";
@@ -61,7 +61,7 @@
       lastTranslation = decodeHtml(result);
       $("translatedText").textContent = lastTranslation;
       $("speakBtn").disabled = false;
-      setStatus(autoSpeakEnabled ? "翻譯完成，準備播放語音…" : "翻譯完成，請按播放翻譯");
+      setStatus(autoSpeakEnabled ? "翻譯完成，正在嘗試自動播放…" : "翻譯完成，請按播放翻譯");
       if (autoSpeakEnabled) {
         // Attempt automatic playback after each completed translation.
         // iOS Chrome may require a fresh user tap for some speech playback sessions.
@@ -164,12 +164,18 @@
   }
 
   $("startBtn").addEventListener("click", startListening);
-  $("stopBtn").addEventListener("click", stopListening);
+  $("stopBtn").addEventListener("click", () => {
+    stopListening();
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    setStatus("已停止口譯與語音播放");
+  });
   $("clearBtn").addEventListener("click", () => {
     $("sourceText").textContent = "辨識到的語音會顯示在這裡…";
     $("translatedText").textContent = "翻譯結果會顯示在這裡…";
     $("sourceText").classList.add("placeholder"); $("translatedText").classList.add("placeholder");
-    lastTranslation = ""; $("speakBtn").disabled = true; setStatus("已清除");
+    lastTranslation = ""; $("speakBtn").disabled = true;
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    setStatus("已清除");
   });
   $("translateBtn").addEventListener("click", () => translate($("manualText").value));
   $("speakBtn").addEventListener("click", () => speak(lastTranslation, direction === "en-zh" ? "zh-TW" : "en-US"));
@@ -177,8 +183,8 @@
   const autoButton = document.createElement("button");
   autoButton.type = "button";
   autoButton.className = "secondary full";
-  autoButton.textContent = "🔁 自動播放：關閉";
-  autoButton.setAttribute("aria-pressed", "false");
+  autoButton.textContent = "🔁 自動播放：開啟";
+  autoButton.setAttribute("aria-pressed", "true");
   autoButton.addEventListener("click", () => {
     autoSpeakEnabled = !autoSpeakEnabled;
     autoButton.textContent = autoSpeakEnabled ? "🔁 自動播放：開啟" : "🔁 自動播放：關閉";
@@ -211,5 +217,8 @@
     speak(direction === "en-zh" ? "你好，這是語音試聽。" : "Hello, this is a voice preview.",
       direction === "en-zh" ? "zh-TW" : "en-US");
   });
-  if (!SpeechRecognition) setStatus("語音辨識需使用支援的瀏覽器；可先輸入文字");
+  if (!SpeechRecognition) setStatus("語音辨識不支援；可使用文字輸入或鍵盤聽寫");
+  // Auto-play is enabled by default in this short-trip edition.
+  // iOS may still require a user tap before it allows speech playback.
+  setStatus("省錢模式已就緒｜自動播放已開啟");
 })();
