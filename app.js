@@ -1,6 +1,7 @@
 (() => {
   const $ = id => document.getElementById(id);
   let direction = "en-zh", recognition = null, listening = false, lastTranslation = "";
+  let autoSpeakEnabled = false;
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   let voices = [];
 
@@ -46,7 +47,12 @@
       lastTranslation = decodeHtml(result);
       $("translatedText").textContent = lastTranslation;
       $("speakBtn").disabled = false;
-      setStatus("翻譯完成，請按播放翻譯");
+      setStatus(autoSpeakEnabled ? "翻譯完成，準備播放語音…" : "翻譯完成，請按播放翻譯");
+      if (autoSpeakEnabled) {
+        // Attempt automatic playback after each completed translation.
+        // iOS Chrome may require a fresh user tap for some speech playback sessions.
+        window.setTimeout(() => speak(lastTranslation, direction === "en-zh" ? "zh-TW" : "en-US"), 150);
+      }
     } catch (e) {
       $("translatedText").textContent = "翻譯失敗：" + e.message + "。請檢查網路，或稍後再試。";
       $("translatedText").classList.add("placeholder");
@@ -144,6 +150,24 @@
   });
   $("translateBtn").addEventListener("click", () => translate($("manualText").value));
   $("speakBtn").addEventListener("click", () => speak(lastTranslation, direction === "en-zh" ? "zh-TW" : "en-US"));
+
+  const autoButton = document.createElement("button");
+  autoButton.type = "button";
+  autoButton.className = "secondary full";
+  autoButton.textContent = "🔁 自動播放：關閉";
+  autoButton.setAttribute("aria-pressed", "false");
+  autoButton.addEventListener("click", () => {
+    autoSpeakEnabled = !autoSpeakEnabled;
+    autoButton.textContent = autoSpeakEnabled ? "🔁 自動播放：開啟" : "🔁 自動播放：關閉";
+    autoButton.setAttribute("aria-pressed", String(autoSpeakEnabled));
+    setStatus(autoSpeakEnabled ? "自動播放已開啟" : "自動播放已關閉");
+    if (autoSpeakEnabled) {
+      // A short spoken test is initiated directly by this tap to unlock audio where supported.
+      speak(direction === "en-zh" ? "自動播放已開啟。" : "Automatic playback is on.",
+            direction === "en-zh" ? "zh-TW" : "en-US");
+    }
+  });
+  $("speakBtn").parentElement.insertAdjacentElement("afterend", autoButton);
 
   const test = document.createElement("button");
   test.type = "button"; test.className = "secondary full"; test.textContent = "🔈 測試耳機語音";
