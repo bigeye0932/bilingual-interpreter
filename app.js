@@ -1,32 +1,39 @@
 (() => {
   const $ = id => document.getElementById(id);
-  let direction = "en-zh", recognition = null, listening = false, lastTranslation = "";
+  let direction = "en-zh";
+  let recognition = null;
+  let listening = false;
+  let shouldListen = false;
+  let lastTranslation = "";
   let autoSpeakEnabled = true;
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   let voices = [];
-  let selectedVoiceURI = "";
+  let selectedVoices = { "zh-TW": "", "en-US": "" };
+  let interimTimer = null;
+  let restartTimer = null;
+  let lastSubmittedText = "";
+  let translationId = 0;
+  let speechQueue = Promise.resolve();
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
+  function setStatus(s) { $("status").textContent = s; }
   function refreshVoices() {
     voices = ("speechSynthesis" in window) ? window.speechSynthesis.getVoices() : [];
     const select = $("voiceSelect");
-    if (select) {
-      const previous = selectedVoiceURI || select.value;
-      select.innerHTML = '<option value="">依翻譯語言自動選擇最佳聲音</option>';
-      const relevant = voices.filter(v => /^(zh|en)/i.test(v.lang));
-      relevant.forEach(v => {
-        const opt = document.createElement("option");
-        opt.value = v.voiceURI;
-        opt.textContent = v.name + "（" + v.lang + "）";
-        select.appendChild(opt);
-      });
-      if (previous && [...select.options].some(o => o.value === previous)) select.value = previous;
-    }
+    if (!select) return;
+    const current = select.value;
+    select.innerHTML = '<option value="">依語言自動選擇（中文女聲／英文男聲優先）</option>';
+    voices.filter(v => /^(zh|en)/i.test(v.lang)).forEach(v => {
+      const opt = document.createElement("option");
+      opt.value = v.voiceURI;
+      opt.textContent = v.name + "（" + v.lang + "）";
+      select.appendChild(opt);
+    });
+    if (current && [...select.options].some(o => o.value === current)) select.value = current;
   }
   if ("speechSynthesis" in window) {
     refreshVoices();
     window.speechSynthesis.onvoiceschanged = refreshVoices;
   }
-  function setStatus(s) { $("status").textContent = s; }
 
   function setDirection(next) {
     direction = next;
@@ -34,7 +41,7 @@
     $("zhToEn").classList.toggle("active", direction === "zh-en");
     $("sourceLabel").textContent = direction === "en-zh" ? "對方說英文" : "你說中文";
     $("targetLabel").textContent = direction === "en-zh" ? "翻譯成繁體中文" : "翻譯成美式英文";
-    if (listening) stopListening();
+    if (shouldListen) stopListening();
     setStatus("已切換翻譯方向");
   }
   $("enToZh").addEventListener("click", () => setDirection("en-zh"));
@@ -43,8 +50,15 @@
   function decodeHtml(value) {
     const el = document.createElement("textarea"); el.innerHTML = value; return el.value;
   }
-  async function translate(text) {
-    const clean = text.trim(); if (!clean) return;
+  function targetLang() { return direction === "en-zh" ? "zh-TW" : "en-US"; }
+  function sourceLang() { return direction === "en-zh" ? "en-US" : "zh-TW"; }
+
+  async function translate(text, fromSpeech = false) {
+    const clean = (text || "").trim();
+    if (!clean || clean.length < 2) return;
+    if (clean === lastSubmittedText) return;
+    lastSubmittedText = clean;
+    const myId = ++translationId;
     $("sourceText").textContent = clean;
     $("sourceText").classList.remove("placeholder");
     $("translatedText").textContent = "翻譯中…";
@@ -58,127 +72,170 @@
       const data = await response.json();
       const result = data && data.responseData && data.responseData.translatedText;
       if (!result) throw new Error("沒有取得翻譯結果");
+      if (myId !== translationId) return;
       lastTranslation = decodeHtml(result);
       $("translatedText").textContent = lastTranslation;
       $("speakBtn").disabled = false;
-      setStatus(autoSpeakEnabled ? "翻譯完成，正在嘗試自動播放…" : "翻譯完成，請按播放翻譯");
-      if (autoSpeakEnabled) {
-        // Attempt automatic playback after each completed translation.
-        // iOS Chrome may require a fresh user tap for some speech playback sessions.
-        window.setTimeout(() => speak(lastTranslation, direction === "en-zh" ? "zh-TW" : "en-US"), 150);
-      }
+      setStatus(autoSpeakEnabled ? "翻譯完成，播放語音…" : "翻譯完成");
+      if (autoSpeakEnabled) speak(lastTranslation, targetLang());
     } catch (e) {
-      $("translatedText").textContent = "翻譯失敗：" + e.message + "。請檢查網路，或稍後再試。";
+      if (myId !== translationId) return;
+      $("translatedText").textContent = "翻譯暫時失敗：" + e.message + "。請稍後再試。";
       $("translatedText").classList.add("placeholder");
-      setStatus("翻譯服務暫不可用");
+      setStatus("翻譯服務暫不可用；可稍後重試");
     }
   }
 
-  function selectVoice(lang) {
+  function chooseVoice(lang) {
     refreshVoices();
-    const isChinese = lang === "zh-TW";
-    const matching = isChinese
-      ? voices.filter(v => /^zh[-_]tw$/i.test(v.lang) || /zh[-_]hant/i.test(v.lang) || /^zh/i.test(v.lang))
-      : voices.filter(v => /^en[-_]us$/i.test(v.lang) || /^en/i.test(v.lang));
-
-    // Voice names are not consistently labelled by gender on iOS.
-    // These hints only prioritize likely matches; users can choose any installed voice in the selector.
-    const femaleHints = /female|woman|samantha|ava|jenny|aria|susan|ting[- ]?ting|mei[- ]?jia|sin[- ]?ji/i;
-    const maleHints = /male|man|daniel|alex|fred|tom|aaron|guy|david|oliver|lee/i;
-    const preferred = isChinese ? femaleHints : maleHints;
-    return matching.find(v => preferred.test(v.name)) || matching[0];
+    const list = voices.filter(v => lang === "zh-TW"
+      ? /^zh[-_]tw$/i.test(v.lang) || /zh[-_]hant/i.test(v.lang) || /^zh/i.test(v.lang)
+      : /^en[-_]us$/i.test(v.lang) || /^en/i.test(v.lang));
+    const female = /female|woman|samantha|ava|jenny|aria|susan|ting[- ]?ting|mei[- ]?jia|sin[- ]?ji/i;
+    const male = /male|man|daniel|alex|fred|tom|aaron|guy|david|oliver|lee/i;
+    const preferred = lang === "zh-TW" ? female : male;
+    return list.find(v => preferred.test(v.name)) || list[0];
   }
-
   function speak(text, lang) {
-    if (!text) { setStatus("目前沒有可播放的翻譯文字"); return; }
-    if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
-      setStatus("此瀏覽器不支援語音播放");
-      alert("此瀏覽器不支援語音播放。請更新 iOS，並使用 Safari 再試。");
-      return;
-    }
+    if (!text || !("speechSynthesis" in window)) return;
     const synth = window.speechSynthesis;
     synth.cancel();
     synth.resume();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = lang;
-    utterance.rate = 0.92;
-    utterance.pitch = 1;
-    utterance.volume = 1;
-    const manualVoice = selectedVoiceURI ? voices.find(v => v.voiceURI === selectedVoiceURI) : null;
-    const voice = manualVoice || selectVoice(lang);
+    const voiceURI = selectedVoices[lang];
+    const manualVoice = voiceURI ? voices.find(v => v.voiceURI === voiceURI) : null;
+    const voice = manualVoice || chooseVoice(lang);
     if (voice) utterance.voice = voice;
     const rateControl = $("rateSelect");
     utterance.rate = rateControl ? Number(rateControl.value || 0.92) : 0.92;
-    utterance.onstart = () => setStatus("正在播放語音…");
-    utterance.onend = () => setStatus("語音播放完成");
-    utterance.onerror = e => setStatus("語音播放失敗：" + (e.error || "未知錯誤"));
-    try {
-      synth.speak(utterance);
-      if (synth.paused) synth.resume();
-    } catch (e) {
-      setStatus("無法啟動語音播放");
-      alert("無法啟動語音播放，請重新整理網頁後再試。");
-    }
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    utterance.onstart = () => setStatus("正在播放翻譯語音…");
+    utterance.onend = () => setStatus(shouldListen ? "持續聆聽中…" : "語音播放完成");
+    utterance.onerror = e => setStatus("語音播放受系統限制：" + (e.error || "請點播放翻譯"));
+    synth.speak(utterance);
   }
 
+  function submitFinal(text) {
+    const clean = text.trim();
+    if (!clean) return;
+    if (interimTimer) { clearTimeout(interimTimer); interimTimer = null; }
+    translate(clean, true);
+  }
+
+  function startRecognitionInstance() {
+    if (!shouldListen || !SpeechRecognition) return;
+    try {
+      recognition = new SpeechRecognition();
+      recognition.lang = sourceLang();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+      recognition.onstart = () => {
+        listening = true;
+        $("startBtn").disabled = true;
+        $("stopBtn").disabled = false;
+        setStatus("持續聆聽中…聽到一段話會盡快翻譯");
+      };
+      recognition.onresult = event => {
+        let finals = [];
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          const phrase = result[0] && result[0].transcript ? result[0].transcript.trim() : "";
+          if (!phrase) continue;
+          if (result.isFinal) finals.push(phrase);
+          else interim += phrase + " ";
+        }
+        if (finals.length) {
+          submitFinal(finals.join(" "));
+        } else if (interim.trim()) {
+          const partial = interim.trim();
+          $("sourceText").textContent = partial + " …";
+          $("sourceText").classList.remove("placeholder");
+          if (interimTimer) clearTimeout(interimTimer);
+          // Translate a settled interim phrase after a short pause, instead of waiting
+          // for the browser to declare a long final result. This is best-effort.
+          interimTimer = setTimeout(() => {
+            interimTimer = null;
+            if (shouldListen && partial !== lastSubmittedText) translate(partial, true);
+          }, 950);
+        }
+      };
+      recognition.onerror = event => {
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          shouldListen = false;
+          setStatus("麥克風權限未允許，請到 iPhone 設定開啟麥克風權限");
+        } else if (event.error !== "no-speech" && event.error !== "aborted") {
+          setStatus("語音辨識中斷：" + event.error + "，正在嘗試恢復…");
+        }
+      };
+      recognition.onend = () => {
+        listening = false;
+        if (shouldListen) {
+          setStatus("收音短暫中斷，正在重新連線…");
+          clearTimeout(restartTimer);
+          restartTimer = setTimeout(() => startRecognitionInstance(), 450);
+        } else {
+          $("startBtn").disabled = false;
+          $("stopBtn").disabled = true;
+          setStatus("口譯已停止");
+        }
+      };
+      recognition.start();
+    } catch (e) {
+      listening = false;
+      if (shouldListen) {
+        setStatus("瀏覽器暫時無法持續收音，請再按一次開始口譯");
+        shouldListen = false;
+        $("startBtn").disabled = false;
+        $("stopBtn").disabled = true;
+      }
+    }
+  }
   function startListening() {
     if (!SpeechRecognition) {
-      setStatus("此瀏覽器不支援語音辨識");
-      alert("目前瀏覽器不支援網頁語音辨識。請使用下方文字輸入，或使用 iPhone 鍵盤麥克風聽寫。");
+      setStatus("此瀏覽器不支援語音辨識；可用文字輸入或鍵盤聽寫");
+      alert("目前瀏覽器不支援網頁語音辨識。建議用 iPhone Safari，或使用鍵盤麥克風聽寫。");
       return;
     }
-    if (listening) return;
-    recognition = new SpeechRecognition();
-    recognition.lang = direction === "en-zh" ? "en-US" : "zh-TW";
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    let finalText = "";
-    recognition.onstart = () => {
-      listening = true; $("startBtn").disabled = true; $("stopBtn").disabled = false; setStatus("正在收音…");
-    };
-    recognition.onresult = event => {
-      let interim = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const piece = event.results[i][0].transcript;
-        if (event.results[i].isFinal) finalText += piece + " ";
-        else interim += piece;
-      }
-      const display = (finalText + interim).trim();
-      $("sourceText").textContent = display || "正在聆聽…";
-      $("sourceText").classList.remove("placeholder");
-      if (finalText.trim()) { const t = finalText.trim(); finalText = ""; translate(t); }
-    };
-    recognition.onerror = event => {
-      setStatus("收音錯誤：" + event.error);
-      if (event.error === "not-allowed") alert("請允許網站使用麥克風。");
-    };
-    recognition.onend = () => {
-      listening = false; $("startBtn").disabled = false; $("stopBtn").disabled = true;
-      if ($("status").textContent === "正在收音…") setStatus("收音已停止");
-    };
-    try { recognition.start(); } catch (e) { setStatus("無法啟動收音"); }
+    if (shouldListen) return;
+    shouldListen = true;
+    lastSubmittedText = "";
+    startRecognitionInstance();
   }
   function stopListening() {
-    if (recognition) { try { recognition.stop(); } catch (e) {} }
-    listening = false; $("startBtn").disabled = false; $("stopBtn").disabled = true;
+    shouldListen = false;
+    clearTimeout(restartTimer);
+    clearTimeout(interimTimer);
+    if (recognition) {
+      const old = recognition;
+      recognition = null;
+      try { old.onend = null; old.stop(); } catch (e) {}
+    }
+    listening = false;
+    $("startBtn").disabled = false;
+    $("stopBtn").disabled = true;
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    setStatus("已停止口譯");
   }
 
   $("startBtn").addEventListener("click", startListening);
-  $("stopBtn").addEventListener("click", () => {
-    stopListening();
-    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-    setStatus("已停止口譯與語音播放");
-  });
+  $("stopBtn").addEventListener("click", stopListening);
   $("clearBtn").addEventListener("click", () => {
     $("sourceText").textContent = "辨識到的語音會顯示在這裡…";
     $("translatedText").textContent = "翻譯結果會顯示在這裡…";
-    $("sourceText").classList.add("placeholder"); $("translatedText").classList.add("placeholder");
-    lastTranslation = ""; $("speakBtn").disabled = true;
+    $("sourceText").classList.add("placeholder");
+    $("translatedText").classList.add("placeholder");
+    lastTranslation = "";
+    lastSubmittedText = "";
+    $("speakBtn").disabled = true;
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     setStatus("已清除");
   });
   $("translateBtn").addEventListener("click", () => translate($("manualText").value));
-  $("speakBtn").addEventListener("click", () => speak(lastTranslation, direction === "en-zh" ? "zh-TW" : "en-US"));
+  $("speakBtn").addEventListener("click", () => speak(lastTranslation, targetLang()));
 
   const autoButton = document.createElement("button");
   autoButton.type = "button";
@@ -190,35 +247,42 @@
     autoButton.textContent = autoSpeakEnabled ? "🔁 自動播放：開啟" : "🔁 自動播放：關閉";
     autoButton.setAttribute("aria-pressed", String(autoSpeakEnabled));
     setStatus(autoSpeakEnabled ? "自動播放已開啟" : "自動播放已關閉");
-    if (autoSpeakEnabled) {
-      // A short spoken test is initiated directly by this tap to unlock audio where supported.
-      speak(direction === "en-zh" ? "自動播放已開啟。" : "Automatic playback is on.",
-            direction === "en-zh" ? "zh-TW" : "en-US");
-    }
+    if (autoSpeakEnabled) speak("自動播放已開啟。", targetLang());
   });
   $("speakBtn").parentElement.insertAdjacentElement("afterend", autoButton);
 
   const test = document.createElement("button");
-  test.type = "button"; test.className = "secondary full"; test.textContent = "🔈 測試耳機語音";
+  test.type = "button";
+  test.className = "secondary full";
+  test.textContent = "🔈 測試耳機語音";
   test.addEventListener("click", () => speak(
     direction === "en-zh" ? "你好，這是中文語音測試。" : "Hello, this is an English audio test.",
-    direction === "en-zh" ? "zh-TW" : "en-US"
+    targetLang()
   ));
   $("speakBtn").parentElement.insertAdjacentElement("afterend", test);
+
   const voiceSelect = $("voiceSelect");
   if (voiceSelect) {
     voiceSelect.addEventListener("change", () => {
-      selectedVoiceURI = voiceSelect.value;
-      setStatus(selectedVoiceURI ? "已選擇語音" : "依語言自動選擇語音");
+      const chosen = voiceSelect.value;
+      if (!chosen) {
+        selectedVoices = { "zh-TW": "", "en-US": "" };
+      } else {
+        const voice = voices.find(v => v.voiceURI === chosen);
+        if (voice) {
+          if (/^zh/i.test(voice.lang)) selectedVoices["zh-TW"] = chosen;
+          if (/^en/i.test(voice.lang)) selectedVoices["en-US"] = chosen;
+        }
+      }
+      setStatus("已更新語音選擇；不同語言會分別使用對應聲音");
     });
   }
   const preview = $("previewVoice");
-  if (preview) preview.addEventListener("click", () => {
-    speak(direction === "en-zh" ? "你好，這是語音試聽。" : "Hello, this is a voice preview.",
-      direction === "en-zh" ? "zh-TW" : "en-US");
-  });
-  if (!SpeechRecognition) setStatus("語音辨識不支援；可使用文字輸入或鍵盤聽寫");
-  // Auto-play is enabled by default in this short-trip edition.
-  // iOS may still require a user tap before it allows speech playback.
-  setStatus("省錢模式已就緒｜自動播放已開啟");
+  if (preview) preview.addEventListener("click", () => speak(
+    direction === "en-zh" ? "你好，這是中文語音試聽。" : "Hello, this is an English voice preview.",
+    targetLang()
+  ));
+
+  if (!SpeechRecognition) setStatus("此瀏覽器不支援語音辨識；可使用文字輸入或鍵盤聽寫");
+  else setStatus("即時口譯改善版已就緒｜自動播放開啟");
 })();

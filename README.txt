@@ -1,23 +1,23 @@
-美國出差最後 4 天專用版 V1.5
+美國出差即時口譯改善版 V1.6
 
-本版特色
-- 不需要 OpenAI API Key，不會產生 OpenAI API 用量費用。
-- 使用 MyMemory 免費翻譯服務。
-- 使用瀏覽器語音辨識及 iPhone 內建語音播放。
-- 自動播放預設開啟；iPhone 仍可能因系統限制要求使用者點擊播放。
-- 保留英文→繁體中文、中文→美式英文及文字輸入翻譯。
-- 停止口譯時會停止語音播放。
+更新重點
+- 持續收音：辨識服務意外結束時，嘗試自動重新啟動。
+- 快速分段：語音辨識提供暫時結果後，若約 0.95 秒沒有新語音，先送出翻譯，不必一直等較長的最終結果。
+- 自動播放：翻譯完成後立即嘗試播放。
+- 停止按鈕會停止收音重啟、取消待處理的暫時翻譯計時及語音播放。
+- 修正語音選擇邏輯：中文和英文各自記錄所選語音，不再用同一個聲音硬套兩種語言。
+- 保留免費 MyMemory 翻譯；不呼叫 OpenAI API。
 
-更新 GitHub Pages
+更新 GitHub
 1. 解壓縮 ZIP。
-2. 開啟 GitHub 專案 bigeye0932/bilingual-interpreter。
-3. 將 index.html、style.css、app.js 三個檔案上傳並覆蓋原檔。
-4. Commit changes，等待 GitHub Pages 更新。
-5. 用 iPhone Chrome 重新整理網站。
+2. 到 https://github.com/bigeye0932/bilingual-interpreter
+3. 上傳並覆蓋 index.html、style.css、app.js。
+4. Commit changes，等 Pages 更新。
+5. iPhone Chrome 重新整理，若舊版仍顯示，關閉分頁再重新開啟。
 
-重要提醒
-- 單純開啟網站不會產生 OpenAI API 費用；本版沒有呼叫 OpenAI API。
-- MyMemory 免費服務可能有每日用量限制、速度或品質限制。
-- 語音辨識需網路、麥克風權限及瀏覽器支援。
-- 若自動播放被 iOS 阻擋，請點「播放翻譯」或先點「測試耳機語音」。
-- 翻譯文字會傳送到 MyMemory 服務；避免輸入密碼、個資或機密內容。
+重要限制
+- 這是免費瀏覽器方案的改善，不是真正的語音串流 AI 口譯。瀏覽器可能延遲、漏字、拒絕背景收音或不允許自動播放。
+- 0.95 秒停頓分段可能使句子在中間被切開；如翻譯不完整，可等對方講完再看最終結果或手動輸入。
+- iOS Chrome 的語音辨識支援依系統版本和瀏覽器而異；若不穩，請嘗試 iPhone Safari。
+- MyMemory 免費服務有額度、速度和品質限制；翻譯文字會傳送到該服務，避免輸入機密資料。
+- 免 OpenAI API Key，沒有 OpenAI API 費用；仍需網路流量。
