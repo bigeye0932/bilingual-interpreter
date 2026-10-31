@@ -1,0 +1,9 @@
+{
+  "name": "雙向即時口譯",
+  "short_name": "即時口譯",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#eef3f8",
+  "theme_color": "#123b5d",
+  "lang": "zh-Hant"
+}

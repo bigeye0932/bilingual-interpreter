@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#123b5d">
+  <title>AI 雙向即時口譯</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div class="eyebrow">免 API Key・瀏覽器口譯工具</div>
+      <h1>雙向即時口譯</h1>
+      <p>繁體中文 ⇄ 美式英文</p>
+    </header>
+
+    <section class="notice">
+      <strong>使用前提醒</strong>
+      <p>此版本使用瀏覽器語音辨識、免費翻譯服務及裝置語音播放，不使用 OpenAI API。需要網路及麥克風權限；不同瀏覽器支援度可能不同。</p>
+    </section>
+
+    <section class="direction">
+      <button id="enToZh" class="direction-btn active" type="button">英文 → 繁體中文</button>
+      <button id="zhToEn" class="direction-btn" type="button">中文 → 美式英文</button>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <span id="sourceLabel">對方說英文</span>
+        <span id="status" class="status">尚未開始</span>
+      </div>
+      <div id="sourceText" class="transcript placeholder">辨識到的語音會顯示在這裡…</div>
+      <div class="panel-head translated-head">
+        <span id="targetLabel">翻譯成繁體中文</span>
+        <button id="speakBtn" class="small-btn" type="button" disabled>🔊 播放翻譯</button>
+      </div>
+      <div id="translatedText" class="transcript translated placeholder">翻譯結果會顯示在這裡…</div>
+    </section>
+
+    <section class="controls">
+      <button id="startBtn" class="primary" type="button">🎙️ 開始收音</button>
+      <button id="stopBtn" class="secondary" type="button" disabled>停止</button>
+      <button id="clearBtn" class="secondary" type="button">清除</button>
+    </section>
+
+    <section class="manual">
+      <label for="manualText">也可以輸入文字翻譯</label>
+      <textarea id="manualText" rows="3" placeholder="輸入中文或英文…"></textarea>
+      <button id="translateBtn" class="secondary full" type="button">翻譯文字</button>
+    </section>
+
+    <details class="help">
+      <summary>使用說明與故障排除</summary>
+      <ul>
+        <li>請使用最新版 Chrome 或 Edge；語音辨識通常需要 HTTPS 網址。</li>
+        <li>按「開始收音」後，允許網站使用麥克風。</li>
+        <li>英文→中文模式請讓對方說英文；中文→英文模式請自己說中文。</li>
+        <li>若 iPhone Safari 沒有語音辨識功能，可使用下方文字輸入，或用 iPhone 鍵盤上的麥克風聽寫。</li>
+        <li>免費翻譯服務可能有流量限制、延遲或暫時無法使用；本工具不是專業醫療或法律口譯。</li>
+      </ul>
+    </details>
+    <footer>免 OpenAI API Key｜翻譯文字會送至 MyMemory 免費翻譯服務處理。</footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
